@@ -22,14 +22,14 @@ struct Token {
     int type;
     int ligne;
     int valeur;  
-    std::string texte; 
+    std::string texte;  
 };
 
 // Définition de la structure Node
 struct Node {
     int type;
-    int valeur;  // Utilisé pour les nœuds contenant une valeur (par exemple, un nombre)
-    std::vector<Node*> enfants;  // Liste des enfants (sous-nœuds)
+    int valeur;  
+    std::vector<Node*> enfants;  
 };
 
 enum NodeType {
@@ -49,7 +49,6 @@ enum NodeType {
     nd_notequal,
     nd_and,
     nd_or
-
 };
 
 struct Operateur {
@@ -74,7 +73,6 @@ vector <Operateur> Operateurs = {
     {AND, 3, 0, nd_and},
     {OR, 2, 0, nd_or},
     {ASSIGN, 1, 0, nd_affect }
-    
 };
 
 // Variables globales pour stocker les tokens actuels et précédents
@@ -88,7 +86,6 @@ void next() {
     while (*src != '\0') {
         char c = *src;
 
-        // Ignorer les espaces blancs et compter les lignes
         if (isspace(c)) {
             if (c == '\n') {
                 current_line++;
@@ -97,7 +94,6 @@ void next() {
             continue;
         }
 
-        // Identifier les identificateurs et mots-clés
         if (isalpha(c)) {
             T.texte.clear();
             while (isalnum(c) || c == '_') {
@@ -118,7 +114,6 @@ void next() {
             return;
         }
 
-        // Identifier les nombres
         if (isdigit(c)) {
             T.valeur = 0;
             while (isdigit(c)) {
@@ -130,7 +125,6 @@ void next() {
             return;
         }
 
-        // Identifier les opérateurs et autres caractères
         switch (c) {
             case '+': T.type = PLUS; T.texte= "+"; src++; break;
             case '-': T.type = MINUS; T.texte= "-"; src++; break;
@@ -234,45 +228,16 @@ void accept(int type) {
 }
 
 bool analex(const std::string& code) {
-    src = code.c_str();  // Initialiser le pointeur source avec le code
-    current_line = 1;    // Réinitialiser le compteur de ligne
-    next();              // Initialiser le premier token
-
+    src = code.c_str();
+    current_line = 1;
+    next();
     return true;
-    // while (T.type != END_OF_FILE) {
-    //     // On peut ici ajouter des vérifications supplémentaires selon les besoins
-    //     if (T.type == UNKNOWN) {
-    //         std::cerr << "Erreur lexicale à la ligne " << T.ligne << ": caractère inconnu '" << T.texte << "'" << std::endl;
-    //         return false;  // Retourne faux si un token invalide est rencontré
-    //     }
-
-    //     // Avancer au prochain token
-    //     next();
-    // }
-
-    // std::cout << "Analyse lexicale réussie, tout est bon !" << std::endl;
-    // return true;  // Retourne vrai si tout est valide
 }
-// int main() {
-//     std::string code = "int x = 10; if (x > 0) { x = x + 1; }";
-//     bool result = analexical(code);
 
-//     if (result) {
-//         std::cout << "Le code est valide lexicalement." << std::endl;
-//     } else {
-//         std::cout << "Le code contient des erreurs lexicales." << std::endl;
-//     }
-
-//     return 0;
-// }
-
-
-
-
-// Fonction pour ajouter un enfant à un nœud
 void AjouteEnfant(Node *N, Node *E) {
     N->enfants.push_back(E);
 }
+
 Node* creerNode(int type, int valeur) {
     Node* n = new Node;
     n->type = type;
@@ -280,58 +245,30 @@ Node* creerNode(int type, int valeur) {
     return n;
 }
 
-
-// Fonction pour créer un nœud avec type et valeur
-// Node creerNode(int type, int valeur) {
-//     Node n;
-//     n.type = type;
-//     n.valeur = valeur;
-//     return n;
-// }
 Node* creerNode(int type) {
     Node* n = new Node;
     n->type = type;
-    n->valeur = 0;  // Valeur par défaut
+    n->valeur = 0;
     return n;
 }
-
-
-// Node creerNode(int type) {
-//     Node n;
-//     n.type = type;
-//     n.valeur = 0;
-//     return n;
-// }
 
 Node* creerNode(int type, Node* enfant) {
     Node* n = new Node;
     n->type = type;
-    n->valeur = 0;  // Valeur par défaut
-    AjouteEnfant(n, enfant);  // Ajouter l'enfant au nœud
+    n->valeur = 0;
+    AjouteEnfant(n, enfant);
     return n;
 }
-
-
-// Node creerNode(int type, Node *enfant) {
-//     Node n;
-//     n.type = type;
-//     n.valeur = 0;  // Valeur par défaut
-//     AjouteEnfant(&n, enfant);  // Ajouter l'enfant au nœud
-//     return n;
-// }
-
 
 Node* creerNode(int type, Node* enfant1, Node* enfant2) {
     Node* n = new Node;
     n->type = type;
-    n->valeur = 0;  // Valeur par défaut
-    AjouteEnfant(n, enfant1);  // Ajouter le premier enfant
-    AjouteEnfant(n, enfant2);  // Ajouter le deuxième enfant
+    n->valeur = 0;
+    AjouteEnfant(n, enfant1);
+    AjouteEnfant(n, enfant2);
     return n;
 }
 
-
-// Fonction pour signaler une erreur syntaxique
 void erreurSyntaxique(const std::string& message) {
     std::cerr << "Erreur syntaxique à la ligne " << T.ligne << ": " << message << std::endl;
     exit(EXIT_FAILURE);
@@ -341,27 +278,22 @@ void erreurSyntaxique(const std::string& message) {
 Node *A();
 Node *S();
 Node *P();
-Node *E();
+Node *E(int);
 Node *I();
 Node *F();
 
-
-
-// Fonctions pour analyser chaque règle de grammaire
 Node *A(){
-    // il faut qu' il y a une constante | ( E )
-    // sinon message d'erreur
-    // et renvoi un arbre de tout les tokens 
     if (check(NUMBER)){
         Node *A = creerNode(nd_const, L.valeur);
         return A;
     }
     else if (check(LPAREN)){
-        Node *A = E(); 
+        Node *A = E(0); 
         accept(RPAREN);
         return A;
     }
     erreurSyntaxique("erreur");
+    return nullptr;
 }
 
 Node* S() {
@@ -386,27 +318,6 @@ Node* P() {
         return S();
     }
 }
-
-/*Node* E() {
-    return P();
-}*/
-
-// Node* E(int pmin){
-//     Node *A1 = P();
-//     while (T.type != END_OF_FILE){
-//         for (const auto& op: Operateurs) {
-//         if (op.tok_type == T.type) {
-//             if(op == NULL|| op.priorite < pmin){
-//                 return A1;
-//             }
-//             next();
-//             Node *A2 = E(op.priorite + 1);
-//             A1 = creerNode(op.tok_type, A1, A2);
-//         }
-//     }
-        
-//     }
-// }
 
 Node* E(int pmin) {
     Node *A1 = P();
@@ -441,9 +352,8 @@ Node* E(int pmin) {
     return A1;
 }
 
-
 Node* I() {
-    return E();
+    return E(0);
 }
 
 Node* F() {
@@ -454,34 +364,23 @@ Node* anaSynt(){
     return F();
 }
 
-// Fonction principale pour lancer l'analyse syntaxique
+void gencode(Node& N) {  // Prendre un nœud par référence
 
-void gencode(Node N){ // prend un arbre un parametre et cracher le code 
-    for (const auto& op : Operateurs) {
-            if (op.tok_type == N.type) {
-                for (int i = 0; i<N.enfants.size();i++){
-                    gencode(*N.enfants[i]);
-                }
-                std::cout<<N.type<<std::endl;
-                return;
-                }
-    }
-    switch(N.type){
-        case nd_const :
-        std::cout<<"push " <<N.valeur<<std::endl;
-        break;
-        case nd_not :
-        gencode(*N.enfants[0]);
-        std::cout<<"not"<<std::endl;
-        break;
+    switch (N.type) {
+        case nd_const:
+            std::cout << "push " << N.valeur << std::endl;
+            break;
+        case nd_not:
+            gencode(*N.enfants[0]);
+            std::cout << "not" << std::endl;
+            break;
         case nd_moinun:
-        std::cout<<"push 0"<<std::endl;
-        gencode(*N.enfants[0]);
-        std::cout<<"sub"<<std::endl;
-        break;
+            std::cout << "push 0" << std::endl;
+            gencode(*N.enfants[0]);
+            std::cout << "sub" << std::endl;
+            break;
     }
-
-} 
+}
 
 std::string lireFichier(const char* nomFichier) {
     std::ifstream fichier(nomFichier);
@@ -495,17 +394,14 @@ std::string lireFichier(const char* nomFichier) {
     return buffer.str();
 }
 
-int main(int argc, char *argv[]){
-    std::cout<<".start"<<std::endl;
-    for(int i = 1; i < argc; i++){ // structure globale du compilateur
-
-        analex(lireFichier(argv[i]));// le nom du fichier
-        while(T.type != END_OF_FILE){
-            Node *N = anaSynt();
-            // anaSem(N);
-            // N = optim(N)
+int main(int argc, char *argv[]) {
+    std::cout << ".start" << std::endl;
+    for (int i = 1; i < argc; i++) {
+        analex(lireFichier(argv[i]));
+        while (T.type != END_OF_FILE) {
+            Node* N = anaSynt();
             gencode(*N);
         }
     }
-    std::cout<<"dbg\nhalt"<<std::endl;
+    std::cout << "dbg\nhalt" << std::endl;
 }
