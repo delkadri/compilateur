@@ -1,9 +1,11 @@
+#include <unordered_map>
 #include <iostream>
 #include <string>
 #include <cctype>
 #include <vector>
 #include <fstream>
 #include <sstream>
+
 
 using namespace std;
 
@@ -13,8 +15,8 @@ enum TokenType {
     SLASH,PERCENT,LPAREN,RPAREN,LBRACE,RBRACE,LBRACKET,      
     RBRACKET,SEMICOLON,COMMA,AMPERSAND,LESS,GREATER,       
     LESSEQUAL,GREATEREQUAL,EQUAL,NOTEQUAL,IF,ELSE,      
-    WHILE,DO,FOR,BREAK,CONTINUE,RETURN,INT, NOT,           
-    AND,OR,END_OF_FILE,UNKNOWN        
+    WHILE,DO,FOR,BREAK,CONTINUE,RETURN,INT,DECLARATION,REF,BLOC,DROP,NOT,           
+    AND,OR,DEBUG,END_OF_FILE,UNKNOWN        
 };
 
 // Structure pour un token
@@ -28,10 +30,20 @@ struct Token {
 // Définition de la structure Node
 struct Node {
     int type;
-    int valeur;  
-    std::vector<Node*> enfants;  
+    int valeur; 
+    int position; 
+    std::vector<Node*> enfants;
 };
 
+
+enum SymbType{
+    type_int,
+};
+
+struct Symb{
+    SymbType type;
+    int position;
+};
 enum NodeType {
     nd_mul,
     nd_const,
@@ -48,7 +60,12 @@ enum NodeType {
     nd_equal,
     nd_notequal,
     nd_and,
-    nd_or
+    nd_or,
+    nd_debug,
+    nd_bloc,
+    nd_drop,
+    nd_ref,
+    nd_decl,
 };
 
 struct Operateur {
@@ -59,24 +76,31 @@ struct Operateur {
 };
 
 vector <Operateur> Operateurs = {
-    {ASTERISK, 7, 1, nd_mul},
-    {SLASH, 7, 1, nd_slash},
-    {PERCENT, 7, 1, nd_percent},
-    {PLUS, 6, 1, nd_add},
-    {MINUS, 6, 1, nd_moinun},
-    {GREATEREQUAL, 5, 0, nd_greaterequal},
-    {LESSEQUAL, 5, 0, nd_lessequal},
-    {GREATER, 5, 0, nd_greater},
-    {LESS, 5, 0, nd_less},
-    {EQUAL, 4, 0, nd_equal},
-    {NOTEQUAL, 4, 0, nd_notequal},
-    {AND, 3, 0, nd_and},
-    {OR, 2, 0, nd_or},
-    {ASSIGN, 1, 0, nd_affect }
+    {ASTERISK, 70, 0, nd_mul},
+    {SLASH, 70, 0, nd_slash},
+    {PERCENT, 70, 0, nd_percent},
+    {PLUS, 60, 0, nd_add},
+    {MINUS, 60, 0, nd_moinun},
+    {GREATEREQUAL, 50, 0, nd_greaterequal},
+    {LESSEQUAL, 50, 0, nd_lessequal},
+    {GREATER, 50, 0, nd_greater},
+    {LESS, 50, 0, nd_less},
+    {EQUAL, 40, 0, nd_equal},
+    {NOTEQUAL, 40, 0, nd_notequal},
+    {AND, 30, 0, nd_and},
+    {OR, 20, 0, nd_or},
+    {ASSIGN, 10, 1, nd_affect },
+    // {DEBUG,,,nd_debug},
+    // {DECLARATION,,,nd_decl},
+    // {BLOC,,,nd_bloc},
+    // {REF,,,nd_ref},
+    // {DROP,,,nd_drop},
+
 };
 
 // Variables globales pour stocker les tokens actuels et précédents
-Token T, L;  
+Token T, L; 
+int nvar = 0; 
 const char* src;  // Pointeur vers le code source
 int current_line = 1;  // Compteur de ligne
 
@@ -109,6 +133,8 @@ void next() {
             else if (T.texte == "continue") T.type = CONTINUE;
             else if (T.texte == "return") T.type = RETURN;
             else if (T.texte == "int") T.type = INT;
+            else if (T.texte == "debug") T.type = DEBUG;
+
             else T.type = IDENTIFIER;
             T.ligne = current_line;
             return;
@@ -292,6 +318,9 @@ Node *A(){
         accept(RPAREN);
         return A;
     }
+    else if (check(IDENTIFIER)){
+        return creerNode(nd_ref, L.valeur);
+    }
     erreurSyntaxique("erreur");
     return nullptr;
 }
@@ -352,8 +381,34 @@ Node* E(int pmin) {
     return A1;
 }
 
-Node* I() {
-    return E(0);
+// Node* I() {
+//     return E(0);
+// }
+
+Node *I(){
+    if(check(DEBUG)){
+        Node *R = E(0);
+        accept(SEMICOLON);
+        return creerNode(nd_debug, R);
+    }
+    else if(check(LBRACE)){
+        Node *R = creerNode(nd_bloc);
+        while(!check(RBRACE)){
+            AjouteEnfant(R,I());
+        }
+        return R;
+    }
+    else if (check(INT)){
+        accept(IDENTIFIER);
+        Node * R = creerNode(nd_decl, L.valeur);
+        accept(SEMICOLON);
+        return R;
+    }
+    else {
+        Node *R = E(0);
+        accept(SEMICOLON);
+        return creerNode(nd_drop, R);
+    }
 }
 
 Node* F() {
@@ -363,6 +418,8 @@ Node* F() {
 Node* anaSynt(){
     return F();
 }
+
+
 
 void gencode(Node& N) {  // Prendre un nœud par référence
 
@@ -379,6 +436,16 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             gencode(*N.enfants[0]);
             std::cout << "sub" << std::endl;
             break;
+        case nd_decl :
+            return;
+        case nd_ref : 
+            cout << "get"<<N.position<<endl;
+            return ;
+        case nd_affect :
+            gencode(*N.enfants[1]);
+            cout << "dup"<<endl;
+            cout << "set"<<N.enfants[0]->position<<endl;
+            return ;
     }
 }
 
@@ -394,13 +461,88 @@ std::string lireFichier(const char* nomFichier) {
     return buffer.str();
 }
 
+// Une map pour stocker les variables dans chaque scope
+typedef std::unordered_map<std::string, int> Scope;
+
+// Une pile de scopes
+std::vector<Scope> scope_stack;
+
+void begin_scope() {
+    // Ajouter un nouveau scope (map vide) au sommet de la pile
+    scope_stack.push_back(Scope());
+}
+
+void end_scope() {
+    if (!scope_stack.empty()) {
+        scope_stack.pop_back();
+    } else {
+        std::cerr << "Erreur : Tentative de fermer un scope alors qu'il n'y en a pas." << std::endl;
+    }
+}
+
+Symb* declare(int name) {
+    
+    return ;
+}
+
+Symb* find_variable(int a) {
+    
+    return ;
+}
+
+
+void anaSem(Node *N){
+    switch(N->type){
+        default:
+            for (int i = 0; i<N->enfants.size(); i++){
+                anaSem(N->enfants[i]);
+            }
+        return ;
+        case nd_affect :
+            if(N->enfants[0]->type != nd_ref){
+                erreurfatal("erreur");
+            } 
+            for(int i = 0; i < N->enfants.size(); i++) {
+                anaSem(N->enfants[i]);
+            }
+        case nd_decl : 
+            Symb *S = declare(N->valeur);
+            S->type = type_int;
+            S->position = nvar;
+            nvar++;
+            return ;
+        case nd_ref :
+            Symb *S = find_variable(N->valeur);
+            if (S->type != type_int){
+                erreurfatal("erreur");
+            }
+            N->position = S->position;
+            return;
+        case nd_bloc :
+            begin_scope();
+            for(int i = 0; i < N->enfants.size(); i++) {
+                anaSem(N->enfants[i]);
+            }
+            end_scope();
+            return;
+    }
+}
+void optim(Node *N){
+    
+}
 int main(int argc, char *argv[]) {
     std::cout << ".start" << std::endl;
     for (int i = 1; i < argc; i++) {
         analex(lireFichier(argv[i]));
         while (T.type != END_OF_FILE) {
             Node* N = anaSynt();
+            nvar = 0;
+            anaSem(N);
+            optim(N);
+            cout<<"resn"<<nvar<<endl;
             gencode(*N);
+            cout<<"drop"<<nvar<<endl;
+            
         }
     }
     std::cout << "dbg\nhalt" << std::endl;
