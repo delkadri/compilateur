@@ -33,7 +33,7 @@ struct Token {
 struct Node {
     int type;
     int valeur; 
-    int position; 
+    int position = 0; 
     std::vector<Node*> enfants;
 };
 
@@ -545,7 +545,7 @@ void gencode(Node& N) {  // Prendre un nœud par référence
         case nd_decl :
             return;
         case nd_ref : 
-            cout << "get"<<N.position<<endl;
+            cout << "get "<<N.position<<endl;
             return ;
         case nd_affect :
             gencode(*N.enfants[1]);
