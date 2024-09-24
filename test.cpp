@@ -13,33 +13,37 @@ using namespace std;
 
 // Enum pour les types de tokens
 enum TokenType {
+
     IDENTIFIER,NUMBER, ASSIGN, PLUS, MINUS, ASTERISK,   
-    SLASH,PERCENT,LPAREN,RPAREN,LBRACE,RBRACE,LBRACKET,      
+    SLASH,PERCENT,LPAREN,RPAREN,LBRACE,RBRACE,LBRACKET,  //12    
     RBRACKET,SEMICOLON,COMMA,AMPERSAND,LESS,GREATER,       
     LESSEQUAL,GREATEREQUAL,EQUAL,NOTEQUAL,IF,ELSE,      
-    WHILE,DO,FOR,BREAK,CONTINUE,RETURN,INT,DECLARATION,REF,BLOC,DROP,NOT,           
-    AND,OR,DEBUG,END_OF_FILE,UNKNOWN        
+    WHILE,DO,FOR,BREAK,CONTINUE,RETURN,INT,DECLARATION,
+    REF,BLOC,DROP,NOT,AND,OR,DEBUG,END_OF_FILE,UNKNOWN
+
 };
 
 // Structure pour un token
 struct Token {
     TokenType type;
     int ligne;
-    int valeur;  
+    std::string valeur;  
     std::string texte;  
 };
 
 // Définition de la structure Node
 struct Node {
     int type;
-    int valeur; 
+    string valeur; 
     int position = 0; 
     std::vector<Node*> enfants;
+
 };
 
 
 enum SymbType{
     type_int,
+    type_fonc
 };
 
 struct Symb{
@@ -47,7 +51,7 @@ struct Symb{
     int position = -1 ;
 };
 enum NodeType {
-    nd_mul,
+    nd_mul, //0
     nd_const,
     nd_moinun,
     nd_not,
@@ -57,7 +61,7 @@ enum NodeType {
     nd_percent,
     nd_greaterequal,
     nd_lessequal,
-    nd_greater,
+    nd_greater,//10
     nd_less,
     nd_equal,
     nd_notequal,
@@ -67,7 +71,15 @@ enum NodeType {
     nd_bloc,
     nd_drop,
     nd_ref,
-    nd_decl,
+    nd_decl,//20
+    nd_cond,
+    nd_break,
+    nd_ancre,
+    nd_loop,
+    nd_seq,
+    nd_appel,
+    nd_fonc,
+    nd_ret
 };
 
 struct Operateur {
@@ -92,11 +104,6 @@ vector <Operateur> Operateurs = {
     {AND, 30, 1, nd_and},
     {OR, 20, 1, nd_or},
     {ASSIGN, 10, 0, nd_affect },
-    // {DEBUG,,,nd_debug},
-    // {DECLARATION,,,nd_decl},
-    // {BLOC,,,nd_bloc},
-    // {REF,,,nd_ref},
-    // {DROP,,,nd_drop},
 
 };
 struct OperatorToCode{
@@ -124,19 +131,15 @@ Token T, L;
 int nvar = 0; 
 const char* src;  // Pointeur vers le code source
 int current_line = 1;  // Compteur de ligne
+int nblabel = 0;
+int label_boucle = 0;
 
 void next() {
-    L = T; 
-
+    L = T;
     while (*src != '\0') {
         char c = *src;
-
-        std::cout << "Caractère analysé : " << c << " (" << (int)c << ")" << std::endl;
-
         if (isspace(c)) {
-            if (c == '\n') {
-                current_line++;
-            }
+            if (c == '\n') current_line++;
             src++;
             continue;
         }
@@ -157,31 +160,28 @@ void next() {
             else if (T.texte == "return") T.type = RETURN;
             else if (T.texte == "int") T.type = INT;
             else if (T.texte == "debug") T.type = DEBUG;
-
             else T.type = IDENTIFIER;
             T.ligne = current_line;
-            std::cout << "Identifiant détecté : " << T.texte << std::endl;
             return;
         }
 
         if (isdigit(c)) {
-            T.valeur = 0;
+            T.texte.clear();//AAAAAAAAAAAAAAAAAAAAAAA
             while (isdigit(c)) {
-                T.valeur = T.valeur * 10 + (c - '0');
+                T.texte += c;//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa
                 c = *(++src);
             }
             T.type = NUMBER;
             T.ligne = current_line;
-            std::cout << "Nombre détecté : " << T.valeur << std::endl;
             return;
         }
 
         switch (c) {
-            case '+': T.type = PLUS; T.texte= "+"; src++; break;
-            case '-': T.type = MINUS; T.texte= "-"; src++; break;
-            case '*': T.type = ASTERISK; T.texte= "*"; src++; break;
-            case '/': T.type = SLASH; T.texte= "/"; src++; break;
-            case '%': T.type = PERCENT; T.texte= "%"; src++; break;
+            case '+': T.type = PLUS; T.texte = "+"; src++; break;
+            case '-': T.type = MINUS; T.texte = "-"; src++; break;
+            case '*': T.type = ASTERISK; T.texte = "*"; src++; break;
+            case '/': T.type = SLASH; T.texte = "/"; src++; break;
+            case '%': T.type = PERCENT; T.texte = "%"; src++; break;
             case '=': 
                 if (*(src + 1) == '=') {
                     T.type = EQUAL;
@@ -252,18 +252,19 @@ void next() {
             case ']': T.type = RBRACKET; T.texte = "]"; src++; break;
             case ';': T.type = SEMICOLON; T.texte = ";"; src++; break;
             case ',': T.type = COMMA; T.texte = ","; src++; break;
-            default: 
-            std::cerr << "Caractère inconnu détecté : " << c << " (" << (int)c << ")" << std::endl;
-            T.type = UNKNOWN;
-            T.texte = c; src++; break;
+            default:
+                T.type = UNKNOWN;
+                T.texte = std::string(1, c); 
+                src++;
+                break;
         }
         T.ligne = current_line;
         return;
     }
-
     T.type = END_OF_FILE;
     T.ligne = current_line;
 }
+
 
 
 int check(int type) {
@@ -298,7 +299,7 @@ void AjouteEnfant(Node *N, Node *E) {
     N->enfants.push_back(E);
 }
 
-Node* creerNode(int type, int valeur) {
+Node* creerNode(int type, string valeur) {
     Node* n = new Node;
     n->type = type;
     n->valeur = valeur;
@@ -308,14 +309,12 @@ Node* creerNode(int type, int valeur) {
 Node* creerNode(int type) {
     Node* n = new Node;
     n->type = type;
-    n->valeur = 0;
     return n;
 }
 
 Node* creerNode(int type, Node* enfant) {
     Node* n = new Node;
     n->type = type;
-    n->valeur = 0;
     AjouteEnfant(n, enfant);
     return n;
 }
@@ -323,9 +322,17 @@ Node* creerNode(int type, Node* enfant) {
 Node* creerNode(int type, Node* enfant1, Node* enfant2) {
     Node* n = new Node;
     n->type = type;
-    n->valeur = 0;
     AjouteEnfant(n, enfant1);
     AjouteEnfant(n, enfant2);
+    return n;
+}
+
+Node* creerNode(int type, Node* enfant1, Node* enfant2, Node* enfant3) {
+    Node* n = new Node;
+    n->type = type;
+    AjouteEnfant(n, enfant1);
+    AjouteEnfant(n, enfant2);
+    AjouteEnfant(n, enfant3);
     return n;
 }
 
@@ -359,23 +366,21 @@ Node *F();
 //     return nullptr;
 // }
 Node *A() {
-    std::cout << "Début de A() : Token actuel = " << T.texte << " (type: " << T.type << "), ligne: " << T.ligne << std::endl;
+    // std::cout << "Début de A() : Token actuel = " << T.texte << " (type: " << T.type << "), ligne: " << T.ligne << std::endl;
     
     if (check(NUMBER)) {
-        std::cout << "Nombre détecté : " << L.valeur << std::endl;
-        Node *A = creerNode(nd_const, L.valeur);
+        // std::cout << "Nombre détecté : " << L.valeur << std::endl;
+        Node *A = creerNode(nd_const, L.texte);//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         return A;
     }
     else if (check(LPAREN)) {
-        std::cout << "Parenthèse gauche détectée." << std::endl;
         Node *A = E(0); 
         accept(RPAREN);
-        std::cout << "Parenthèse droite acceptée." << std::endl;
         return A;
     }
     else if (check(IDENTIFIER)) {
         std::cout << "Identifiant détecté : " << L.texte << std::endl;
-        return creerNode(nd_ref, L.valeur);
+        return creerNode(nd_ref, L.texte);//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     }
 
     std::cerr << "Erreur syntaxique à la ligne " << T.ligne << ": attendu un nombre, une parenthèse ou un identifiant, mais reçu : " 
@@ -386,8 +391,17 @@ Node *A() {
 
 
 Node* S() {
-    return A();
+    Node *R = A();
+    if (check(LPAREN)){
+        Node *R = creerNode(nd_appel, R);
+        while (!check(RPAREN)){
+            AjouteEnfant(R,E(0));
+            check(COMMA);
+        } 
+    }
+    return R;
 }
+
 
 Node* P() {
     if (check(PLUS)) {
@@ -441,72 +455,100 @@ Node* E(int pmin) {
     return A1;
 }
 
-// Node* I() {
-//     return E(0);
-// }
-
-// Node *I(){
-//     if(check(DEBUG)){
-//         Node *R = E(0);
-//         accept(SEMICOLON);
-//         return creerNode(nd_debug, R);
-//     }
-//     else if(check(LBRACE)){
-//         Node *R = creerNode(nd_bloc);
-//         while(!check(RBRACE)){
-//             AjouteEnfant(R,I());
-//         }
-//         return R;
-//     }
-//     else if (check(INT)){
-//         accept(IDENTIFIER);
-//         Node * R = creerNode(nd_decl, L.valeur);
-//         accept(SEMICOLON);
-//         return R;
-//     }
-//     else {
-//         Node *R = E(0);
-//         accept(SEMICOLON);
-//         return creerNode(nd_drop, R);
-//     }
-// }
 Node *I() {
-    std::cout << "Début de l'analyse d'une instruction." << std::endl;
 
     if (check(DEBUG)) {
-        std::cout << "Analyse d'une instruction de débogage." << std::endl;
         Node *R = E(0);
         accept(SEMICOLON);
         return creerNode(nd_debug, R);
     }
     else if (check(LBRACE)) {
-        std::cout << "Début d'un bloc." << std::endl;
         Node *R = creerNode(nd_bloc);
         while (!check(RBRACE)) {
-            std::cout << "Analyse d'une instruction dans un bloc." << std::endl;
             AjouteEnfant(R, I());
         }
-        std::cout << "Fin du bloc." << std::endl;
         return R;
     }
     else if (check(INT)) {
         std::cout << "Déclaration d'une variable." << std::endl;
         accept(IDENTIFIER);
-        Node *R = creerNode(nd_decl, L.valeur);
+        Node *R = creerNode(nd_decl, L.texte); // AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         accept(SEMICOLON);  // Attente du point-virgule
         return R;
     }
+    else if (check(IF)){
+        accept (LPAREN);
+        Node *E1 = E(0);
+        accept(RPAREN);
+        Node *I1 = I();
+        Node *cond = creerNode(nd_cond,E1,I1);
+        if (check(ELSE)){
+            Node *I2 = I();
+            AjouteEnfant(cond,I2);
+        }
+        return cond;
+
+    }
+    else if (check(WHILE)){
+        accept (LPAREN);
+        Node *E1 = E(0);
+        accept(RPAREN);
+        Node *I1 = I();
+        Node *brek = creerNode(nd_break);
+        Node *cond = creerNode(nd_cond,E1,I1,brek);
+        Node *ancre = creerNode(nd_ancre);
+        Node *loop = creerNode(nd_loop,ancre,cond);
+        return loop;
+    }
+    else if (check(DO)){
+        Node *I1 = I();
+        accept(WHILE);
+        accept(LPAREN);
+        Node *E1 = E(0);
+        accept(RPAREN);
+        accept(SEMICOLON);
+        Node *notx = creerNode(nd_not,E1);
+        Node *brek = creerNode(nd_break);
+        Node *cond = creerNode(nd_cond,notx,cond);
+        Node *ancre = creerNode(nd_ancre);
+        Node *loop = creerNode(nd_loop,ancre,I1,cond);
+        return loop;
+    }
+    else if (check(FOR)){
+        accept (LPAREN);
+        Node *E1 = E(0);
+        accept (SEMICOLON);
+        Node *E2 = E(0);
+        Node *I1 = I();
+        Node *brek = creerNode(nd_break);
+        Node *cond = creerNode(nd_cond,E2,I1,brek);
+        accept (SEMICOLON);
+        Node *E3 = E(0);
+        Node *ancre = creerNode(nd_ancre);
+        Node *loop = creerNode(nd_loop,cond,ancre,E3);
+        Node *seq = creerNode(nd_seq,E1,loop);
+        accept (RPAREN);
+        // Node *I1 = I();
+        // Node *brek = creerNode(nd_break);
+        // Node *cond = creerNode(nd_cond,E2,I1,brek);
+        // Node *ancre = creerNode(nd_ancre);
+        // Node *loop = creerNode(nd_loop,cond,ancre,E3);
+        // Node *seq = creerNode(nd_seq,E1,loop);
+        return seq;
+
+    }
     else {
-        std::cout << "Analyse d'une expression." << std::endl;
         Node *R = E(0);
         accept(SEMICOLON);  // Attente du point-virgule
         return creerNode(nd_drop, R);
+        
     }
 }
 
 
 
 Node* F() {
+    
     return I();
 }
 
@@ -562,7 +604,37 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             gencode(*N.enfants[0]);
             cout<< "drop "<<N.position<<endl;
             return;
-        
+
+        case nd_loop : {
+            int l = nblabel++;
+            int tmp = label_boucle;
+            label_boucle = l;
+            cout<<".l1"<<l<<endl;
+            for ( Node* E : N.enfants){
+                gencode(*E);
+            }
+            cout<<"jump l1_"<<l<<endl;
+            cout<<".l2_"<<l<<endl;
+            label_boucle = tmp;
+            break; }
+        case nd_cond :
+            gencode(*N.enfants[0]);
+            cout<<"jumpf l1_"<<nblabel<<endl;
+            gencode(*N.enfants[1]);
+            cout<<"jump l2_"<<nblabel<<endl;
+            if (N.enfants.size()>2){
+                cout<<".l1_"<<nblabel<<endl;
+                gencode(*N.enfants[3]);//??????
+                cout<<".l2"<<nblabel<<endl;
+
+            }
+            else {
+                cout<<".l1_"<<nblabel<<endl;
+                cout<<".l2_"<<nblabel<<endl;
+
+            }
+            nblabel++;
+            break;
         default:
             cerr << "Erreur : Nœud de type inconnu (" << N.type << ")" << endl;
             exit(1);
@@ -591,8 +663,8 @@ std::string lireFichier(const char* nomFichier) {
 stack<map<string, Symb>> pileSymboles;
 
 //declaration des fonctions
-Symb *declare(int var);
-Symb *find(int var);
+Symb *declare(string var);
+Symb *find(string var);
 
 
 
@@ -612,22 +684,38 @@ void end()
     pileSymboles.pop();
 }
 
-Symb *declare(int vari) {
-    std::string var = std::to_string(vari);
-    std::cout << "Déclaration de la variable : " << var << std::endl;
+// Symb *declare(string var) {
+    
+//     std::cout << "Déclaration de la variable : " << var << std::endl;
 
-    if (pileSymboles.top().find(var) == pileSymboles.top().end()) {
-        Symb s;
-        pileSymboles.top()[var] = s;
-        return &pileSymboles.top()[var];
-    } else {
-        std::cerr << "Erreur : variable " << var << " déjà déclarée." << std::endl;
-        exit(1);
+//     if (pileSymboles.top().find(var) == pileSymboles.top().end()) {
+//         Symb s;
+//         pileSymboles.top()[var] = s;
+//         return &pileSymboles.top()[var];
+//     } else {
+//         std::cerr << "Erreur : variable " << var << " déjà déclarée." << std::endl;
+//         exit(1);
+//     }
+// }
+Symb *declare(string var) {
+    std::cout << "Déclaration de la variable : " << var << std::endl;  // Affiche le nom de la variable
+
+    // Vérification de l'existence dans le scope actuel (scope au sommet de la pile)
+    if (pileSymboles.top().find(var) != pileSymboles.top().end()) {
+        std::cerr << "Erreur : variable " << var << " déjà déclarée dans ce scope." << std::endl;
+        exit(1);  // Lève une erreur en cas de redéclaration
     }
+
+    // Si elle n'est pas déjà déclarée, on la crée dans le scope courant
+    Symb s;
+    pileSymboles.top()[var] = s;
+    return &pileSymboles.top()[var];
 }
 
-Symb *find(int vari) {
-    std::string var = std::to_string(vari);
+
+
+
+Symb *find(string var) {
     std::cout << "Recherche de la variable : " << var << std::endl;
 
     stack<map<string, Symb>> pileSymbolesTemp = pileSymboles;
@@ -645,17 +733,22 @@ Symb *find(int vari) {
 
 
 
+
 // void anaSem(Node *N) {
+//     std::cout << "Analyse sémantique : type de nœud = " << N->type << std::endl;
+
 //     switch (N->type) {
 //         default:
+//             std::cout << "Analyse sémantique du sous-arbre." << std::endl;
 //             for (int i = 0; i < N->enfants.size(); i++) {
 //                 anaSem(N->enfants[i]);
 //             }
 //             return;
 
 //         case nd_affect: {
+//             std::cout << "Analyse sémantique : affectation." << std::endl;
 //             if (N->enfants[0]->type != nd_ref) {
-//                 erreurfatal("erreur");
+//                 erreurfatal("Erreur sémantique : L'affectation doit se faire sur une référence.");
 //             }
 //             for (int i = 0; i < N->enfants.size(); i++) {
 //                 anaSem(N->enfants[i]);
@@ -664,6 +757,7 @@ Symb *find(int vari) {
 //         }
 
 //         case nd_decl: {
+//             std::cout << "Analyse sémantique : déclaration." << std::endl;
 //             Symb *S = declare(N->valeur);
 //             S->type = type_int;
 //             S->position = nvar;
@@ -672,35 +766,38 @@ Symb *find(int vari) {
 //         }
 
 //         case nd_ref: {
+//             std::cout << "Analyse sémantique : référence." << std::endl;
 //             Symb *S = find(N->valeur);
 //             if (S->type != type_int) {
-//                 erreurfatal("erreur");
+//                 erreurfatal("Erreur sémantique : Type incorrect pour la référence.");
 //             }
 //             N->position = S->position;
 //             return;
 //         }
 
 //         case nd_bloc: {
+//             std::cout << "Analyse sémantique : début de bloc." << std::endl;
 //             begin();
 //             for (int i = 0; i < N->enfants.size(); i++) {
 //                 anaSem(N->enfants[i]);
 //             }
 //             end();
+//             std::cout << "Analyse sémantique : fin de bloc." << std::endl;
 //             return;
 //         }
 //     }
 // }
-
 void anaSem(Node *N) {
     std::cout << "Analyse sémantique : type de nœud = " << N->type << std::endl;
 
     switch (N->type) {
-        default:
+        default: {
             std::cout << "Analyse sémantique du sous-arbre." << std::endl;
             for (int i = 0; i < N->enfants.size(); i++) {
                 anaSem(N->enfants[i]);
             }
             return;
+        }
 
         case nd_affect: {
             std::cout << "Analyse sémantique : affectation." << std::endl;
@@ -714,7 +811,7 @@ void anaSem(Node *N) {
         }
 
         case nd_decl: {
-            std::cout << "Analyse sémantique : déclaration." << std::endl;
+            std::cout << "AHHHHHHHHH" <<N->valeur<< std::endl;
             Symb *S = declare(N->valeur);
             S->type = type_int;
             S->position = nvar;
@@ -723,7 +820,8 @@ void anaSem(Node *N) {
         }
 
         case nd_ref: {
-            std::cout << "Analyse sémantique : référence." << std::endl;
+            std::cout << "Analyse sémantique : référence."<< std::endl;
+
             Symb *S = find(N->valeur);
             if (S->type != type_int) {
                 erreurfatal("Erreur sémantique : Type incorrect pour la référence.");
@@ -745,7 +843,6 @@ void anaSem(Node *N) {
     }
 }
 
-
 void optim(Node *N){
     
 }
@@ -755,6 +852,7 @@ int main(int argc, char *argv[]) {
     std::string code = lireFichier(argv[1]);
     std::cout << "Code source : " << code << std::endl;
         analex(code);
+        
         while (T.type != END_OF_FILE) {
             Node* N = anaSynt();
             nvar = 0;
@@ -768,25 +866,3 @@ int main(int argc, char *argv[]) {
     
     std::cout << "dbg\nhalt" << std::endl;
 }
-
-// int main() {
-//     std::string code = "{int x;}";  // Utilisation d'un code source statique
-
-//     std::cout << "Code source : " << code << std::endl;
-
-//     analex(code);
-
-//     try {
-//         Node* N = anaSynt();
-//         std::cout << "Analyse syntaxique réussie !" << std::endl;
-
-//         anaSem(N);  // Ajout de l'analyse sémantique après l'analyse syntaxique
-//         std::cout << "Analyse sémantique réussie !" << std::endl;
-//         gencode(*N);
-
-//     } catch (const std::exception& e) {
-//         std::cerr << e.what() << std::endl;
-//     }
-
-//     return 0;
-// }

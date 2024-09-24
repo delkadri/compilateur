@@ -1,3 +1,12 @@
-{ int x ;
-  x+3;
- }
+{
+    int x;
+    int y;
+    x = 3;
+    y = 3;
+    int i;
+    i = 0;
+    for ( i; i<x; i++){
+        y++;
+    }
+    
+}
