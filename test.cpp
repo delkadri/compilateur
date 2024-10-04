@@ -117,6 +117,7 @@ enum NodeType {
     nd_decl,//20
     nd_cond,
     nd_break,
+    nd_continue,
     nd_ancre,
     nd_loop,
     nd_seq,//25
@@ -436,9 +437,9 @@ Node* S() {
     }
     else if (check(LBRACKET)){
         Node *add = creerNode(nd_add,R,E(0));
-        R = creerNode(nd_ind,add);
         accept(RBRACKET);
         check(SEMICOLON);
+        R = creerNode(nd_ind,add);
 
     }
     return R;
@@ -533,9 +534,9 @@ Node *I() {
         return R;
     }
     else if (check(INT)) {
-        // std::cout << "Déclaration d'une variable." << std::endl;
+        while(check(ASTERISK)){}
         accept(IDENTIFIER);
-        Node *R = creerNode(nd_decl, L.texte); // AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        Node *R = creerNode(nd_decl, L.texte);
         accept(SEMICOLON);  // Attente du point-virgule
         return R;
     }
@@ -606,59 +607,64 @@ Node *I() {
 
 
 
-Node* F() {
-
-    
-    if(check(INT)){
-        accept(IDENTIFIER);
-        Node *R = creerNode(nd_fonc, L.texte);
-        accept (LPAREN);
-        if  (check(RPAREN)){
-            AjouteEnfant(R,I());
-        }
-        else {
-            accept(INT);
-            accept(IDENTIFIER);
-
-            Node *C = creerNode(nd_decl,L.texte);
-            AjouteEnfant(R,C);
-            while (!check(RPAREN)){
-                accept(COMMA);
-                accept(INT);
-                accept(IDENTIFIER);
-                Node *C = creerNode(nd_decl,L.texte);
-                AjouteEnfant(R,C);
-
-            }
-        AjouteEnfant(R,I());
-
-        } 
-    // afficherNode(R);     
-    return R;
-    }
-    else {
-        return I();
-    }
-    
-}
-
 // Node* F() {
-//     accept(INT);
-//     accept(IDENTIFIER);
-//     Node *R = creerNode(nd_fonc, L.texte);
-//     accept(LPAREN);
-//     while (!check(RPAREN)){
-//         accept(INT);
-//         accept(IDENTIFIER);
-//         Node *R2 = creerNode(nd_decl,L.texte);
-//         AjouteEnfant(R,R2);
-//         check(COMMA);
-//     }
-//     Node *I1 = I();
-//     AjouteEnfant(R,I1);
-//     return R;
+
     
+//     if(check(INT)){
+//         while(check(ASTERISK)){}
+//         accept(IDENTIFIER);
+//         Node *R = creerNode(nd_fonc, L.texte);
+//         accept (LPAREN);
+//         if  (check(RPAREN)){
+//             AjouteEnfant(R,I());
+//         }
+//         else {
+//             accept(INT);
+//             while(check(ASTERISK)){}
+//             accept(IDENTIFIER);
+//             Node *C = creerNode(nd_decl,L.texte);
+//             AjouteEnfant(R,C);
+//             while (!check(RPAREN)){
+//                 accept(COMMA);
+//                 accept(INT);
+//                  while(check(ASTERISK)){}
+
+//                 accept(IDENTIFIER);
+//                 Node *C = creerNode(nd_decl,L.texte);
+//                 AjouteEnfant(R,C);
+
+//             }
+//         AjouteEnfant(R,I());
+
+//         } 
+//     // afficherNode(R);     
+//     return R;
 //     }
+//     else {
+//         return I();
+//     }
+    
+// }
+
+Node* F() {
+    accept(INT);
+    while(check(ASTERISK)){}
+    accept(IDENTIFIER);
+    Node *R = creerNode(nd_fonc, L.texte);
+    accept(LPAREN);
+    while (!check(RPAREN)){
+        accept(INT);
+        while(check(ASTERISK)){}
+        accept(IDENTIFIER);
+        Node *R2 = creerNode(nd_decl,L.texte);
+        AjouteEnfant(R,R2);
+        check(COMMA);
+    }
+    Node *I1 = I();
+    AjouteEnfant(R,I1);
+    return R;
+    
+    }
     
 
 
@@ -706,8 +712,8 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             cout << "set "<<N.enfants[0]->position<<endl;
             }
             else if (N.enfants[0]->type == nd_ind){
-                gencode (*N.enfants[0]->enfants[0]);
                 gencode (*N.enfants[1]);
+                gencode (*N.enfants[0]->enfants[0]);
                 cout<<"write"<<endl;
             }
             return ;
@@ -719,11 +725,13 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             return ;
         case nd_drop:
             gencode(*N.enfants[0]);
-            cout<< "drop "<<N.position<<endl;
+            cout<< "drop 1"<<endl;
             return;
         case nd_ancre:
             cout<<".l3_"<<label_boucle<<endl;
             return;
+        case nd_continue:
+            cout<<"jump l3_"<<label_boucle<<endl;
 
         case nd_break:
             cout<<"jump l2_"<<label_boucle<<endl;
@@ -788,9 +796,7 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             return;
         
         case nd_appel:
-            // cout<<"AHHHHH "<<N.enfants[0]->valeur<<endl;
-            // afficherNode(N);
-
+            
             cout<<"prep "<<N.enfants[0]->valeur<<endl;
             for(int i = 1; i<N.enfants.size();i++){
                 gencode(*N.enfants[i]);
@@ -804,6 +810,15 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             cout<<"push 0"<<endl;
             cout<<"ret"<<endl;
 
+            return;
+        case nd_adr : 
+
+            cout<< "prep start"<<endl;
+            cout<< "swap"<<endl;
+            cout<< "drop 1"<<endl;
+            cout<<"push "<<N.enfants[0]->position + 1<<endl;
+            cout<<"sub"<<endl;
+            
             return;
 
         default:
@@ -1016,7 +1031,6 @@ Node *optim(Node *A){
 //     *(int*)0 = *(int*)0 + n;  // Update the value at address 0
 //     return r;
 // }
-
 
 // int free(int p){
 // }

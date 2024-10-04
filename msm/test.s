@@ -8,14 +8,14 @@ resn 0
 .l3_0
 get 0
 push 10
-cmplt
+cmple
 jumpf if_l1_1
 get 0
 push 1
 add
 dup
 set 0
-drop 0
+drop 1
 jump if_l2_1
 .if_l1_1
 jump l2_0
@@ -27,10 +27,26 @@ ret
 push 0
 ret
 .main
-resn 0
+resn 2
+push 10
+dup
+set 0
+drop 1
+prep start
+swap
+drop 1
+push 1
+sub
+dup
+set 1
+drop 1
 prep add
-push 5
+get 0
 call 1
+get 1
+write
+drop 1
+get 0
 dbg
 push 0
 ret

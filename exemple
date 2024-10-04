@@ -1,5 +1,5 @@
 
-int add(int a){
+int add(int *a){
     while (a<10){
         a = a+1;
     }
@@ -7,6 +7,7 @@ int add(int a){
 }
 
 int main (){
+
    debug add(5);
 
 }
