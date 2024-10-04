@@ -7,7 +7,8 @@ int add(int a){
 }
 
 int main (){
-    add(5);
+   debug add(5);
+
 }
 
 

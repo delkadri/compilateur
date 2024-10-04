@@ -60,6 +60,26 @@ void afficherNode(Node* node, int profondeur = 0) {
         std::cout << indent << "Aucun enfant\n";
     }
 }
+void afficherNode(const Node& node, int profondeur = 0) {
+    // Gestion de l'indentation selon la profondeur de récursion
+    std::string indent(profondeur * 2, ' ');
+    
+    // Affichage des informations de base du node
+    std::cout << indent << "Type: " << node.type << "\n";
+    std::cout << indent << "Nvar: " << node.nvar << "\n";
+    std::cout << indent << "Valeur: " << node.valeur << "\n";
+    std::cout << indent << "Position: " << node.position << "\n";
+
+    // Si le node a des enfants, on les affiche
+    if (!node.enfants.empty()) {
+        std::cout << indent << "Enfants:\n";
+        for (Node* enfant : node.enfants) {
+            afficherNode(*enfant, profondeur + 1);  // Note le passage par référence ici
+        }
+    } else {
+        std::cout << indent << "Aucun enfant\n";
+    }
+}
 
 
 enum SymbType{
@@ -702,7 +722,7 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             cout<< "drop "<<N.position<<endl;
             return;
         case nd_ancre:
-            cout<<".l3"<<label_boucle<<endl;
+            cout<<".l3_"<<label_boucle<<endl;
             return;
 
         case nd_break:
@@ -713,33 +733,36 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             int l = nblabel++;
             int tmp = label_boucle;
             label_boucle = l;
-            cout<<".l1"<<l<<endl;
+            cout<<".loop_l1_"<<l<<endl;
             for ( Node* E : N.enfants){
                 gencode(*E);
             }
-            cout<<"jump l1_"<<l<<endl;
+            cout<<"jump loop_l1_"<<l<<endl;
             cout<<".l2_"<<l<<endl;
             label_boucle = tmp;
             break; }
 
-        case nd_cond :
+        case nd_cond :{
+
+            int temp_if = nblabel;
+            nblabel++;
             gencode(*N.enfants[0]);
-            cout<<"jumpf l1_"<<nblabel<<endl;
+            cout<<"jumpf if_l1_"<<temp_if<<endl;
             gencode(*N.enfants[1]);
-            cout<<"jump l2_"<<nblabel<<endl;
+            cout<<"jump if_l2_"<<temp_if<<endl;
             if (N.enfants.size()>2){
-                cout<<".l1_"<<nblabel<<endl;
-                gencode(*N.enfants[2]);//??????
-                cout<<".l2"<<nblabel<<endl;
+                cout<<".if_l1_"<<temp_if<<endl;
+                gencode(*N.enfants[2]);
+                cout<<".if_l2_"<<temp_if<<endl;
 
             }
             else {
-                cout<<".l1_"<<nblabel<<endl;
-                cout<<".l2_"<<nblabel<<endl;
+                cout<<".if_l1_"<<temp_if<<endl;
+                cout<<".if_l2_"<<temp_if<<endl;
 
             }
-            nblabel++;
-            break;
+            break;}
+
         case nd_seq:
             for (int i = 0; i<N.enfants.size(); i++){
                 gencode(*N.enfants[i]);
@@ -752,7 +775,7 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             break;
         case nd_debug:
             gencode(*N.enfants[0]);
-            cout<<"debug"<<endl;
+            cout<<"dbg"<<endl;
             break;
         
 
@@ -765,10 +788,14 @@ void gencode(Node& N) {  // Prendre un nœud par référence
             return;
         
         case nd_appel:
-            cout<<"prep "<<N.valeur<<endl;
+            // cout<<"AHHHHH "<<N.enfants[0]->valeur<<endl;
+            // afficherNode(N);
+
+            cout<<"prep "<<N.enfants[0]->valeur<<endl;
             for(int i = 1; i<N.enfants.size();i++){
                 gencode(*N.enfants[i]);
             }
+            cout<<"call "<<N.enfants.size()-1<<endl;
             return;
         case nd_fonc:
             cout<<"."<<N.valeur<<endl;
@@ -1007,7 +1034,7 @@ int main(int argc, char *argv[]) {
         analex(code);
         
         while (T.type != END_OF_FILE) {
-
+                    
             Node* N = anaSynt();
             nvar = 0;
             anaSem(N);
